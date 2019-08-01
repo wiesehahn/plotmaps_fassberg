@@ -1,0 +1,168 @@
+---
+author: "Jens Wieshahn"
+date: "April 8, 2019"
+output:
+  pdf_document: 
+  fig_caption: yes
+  word_document: default
+  html_document: default
+always_allow_html: yes
+---
+
+
+
+# Inventuruebungen am Fassberg
+
+
+```{r,echo = FALSE, message=FALSE, warning=FALSE}
+library(webshot)
+library(tidyverse)
+library(plotly)
+library(knitr)
+library(markdown)
+library(rmarkdown)
+library(DT)
+library(kableExtra)
+library(viridis)
+library(here)
+```
+
+## Lage der Stichprobenpunkte
+
+Die Versuchsflaeche liegt auf dem Fassberg, oestlich der Forstfakultaet zwischen Forstbotanischem Garten und Max-Planck-Institut. Die 20 Inventurpunkte wurden in einem systematischen Stichprobenraster mit 40m Abstand zueinander angeordnet.
+
+&nbsp;
+
+Fig.1 **Stichprobenpunkte am Fassberg**
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+aerial <- raster::stack(here("raw_data/fassberg.tif"))
+
+plots <- rgdal::readOGR(dsn= here("raw_data"), layer="Stichprobenpunkte", verbose = FALSE)
+
+crop_extent <- raster::extent(c(566300, 567100, 5712178, 5712778))
+
+aerial_crop <- raster::crop(aerial, crop_extent)
+
+raster::plotRGB(aerial_crop, 
+                r = 1, g = 2, b = 3)
+
+raster::plot(plots,
+             pch=21, col="black", bg = "white", cex=1, lwd=1,
+             add = TRUE)
+
+raster::text(plots, labels = plots@data$Nr, halo=TRUE, hc='black', col='white', hw=0.1, pos = 4, cex= 1)
+
+```
+
+\newpage
+
+Tab.1 **Stichprobenpunkte am Fassberg**
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+ 
+dat <- read.csv(here("raw_data/plot.csv"), sep=";", dec=".", fileEncoding = "UTF-8-BOM") 
+
+t <- dat %>%
+  dplyr::select(plot_nr, zielkoordinate_x, zielkoordinate_y, hang:g) %>%
+  arrange(plot_nr) %>%
+  kable("latex", booktabs = T,
+        col.names = c("Plot", "Koordinate X", "Koordinate Y", "Hangneigung (°)", "Zaehlfaktor", "Baeume", "Grundflaeche (m²/ha)")) %>%
+  kable_styling(latex_options = c("striped", "scale_down")) %>%
+  footnote(general = "Koordinatenreferenzsystem: EPSG:25832 (ETRS89 / UTM zone 32N)")
+
+  print(t)
+  
+```
+
+\newpage
+
+## Plotskizzen und entsprechende Baumtabellen der Daten aus 2018
+
+```{r, fig.height = 9, fig.width = 9, fig.align = "center", echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+
+dat <- read.csv(here("raw_data/data_fassberg.csv"), sep=";", dec=",") 
+
+dat2 <- read.csv(here("raw_data/plot.csv"), sep=";", dec=".", fileEncoding = "UTF-8-BOM") 
+
+  
+for (i in 1:20){
+  
+  perplot <- dat %>%
+  filter(plot_plot_nr == i)
+  
+  ploti <- dat2 %>%
+  filter(plot_nr == i) %>%
+  dplyr::select(zielkoordinate_x, zielkoordinate_y, hang:g) %>%
+  kable("latex", booktabs = T,
+        col.names = c("Koordinate X", "Koordinate Y", "Hangneigung (°)", "Zaehlfaktor", "Baeume", "Grundflaeche (m²/ha)")) %>%
+  kable_styling(latex_options = c( "scale_down")) %>%
+  footnote(general = "Koordinatenreferenzsystem: EPSG:25832 (ETRS89 / UTM zone 32N)", general_title = "", fixed_small_size = T)
+  
+  
+    f <- ggplot() +
+      
+  geom_hline(yintercept = c(3, 7.98, 12.62), colour = "darkcyan", size = 0.5, alpha = 0.4, linetype = "longdash") +
+  geom_point(aes(x = perplot$azimut, 
+                 y = perplot$distanz,
+                 fill = perplot$art_code),
+             size = perplot$bhd/5,
+             color = "white",
+             shape = 21,
+             alpha = 0.8) +
+  annotate("text", x = 5, y = 10, label = "10m") +
+  annotate("text", x = 10, y = 5, label = "5m") +
+  
+  annotate("text", x = 150, y = 3.3, angle = 30, colour = "darkcyan", label = "3m") +
+  annotate("text", x = 150, y = 8.3, angle = 30, colour = "darkcyan", label = "7.98m") +
+  annotate("text", x = 150, y = 12.9, angle = 30, colour = "darkcyan", label = "12.62m") +
+  coord_polar() +
+
+  scale_x_continuous(limits = c(0, 360), 
+                       breaks = (c(0, 90, 180, 270))) +
+  scale_y_continuous(limits = c(0, 13), 
+                       breaks = (c(0, 2.5, 5,7.5, 10)),
+                       minor_breaks = (c(2.5, 7.5))
+                       ) + 
+  theme_minimal(base_size = 18) +
+  scale_fill_viridis(discrete=TRUE, option = "plasma") +
+  xlab("") +
+  ylab("") +
+  theme(axis.text.x = element_text(size = 18),
+        axis.text.y=element_blank(),
+        legend.position="bottom",
+        legend.title = element_blank())
+    
+      t <- perplot %>%
+  dplyr::select(baum_nr,
+         art_scientific_name,
+         distanz:schicht) %>%
+  kable("latex", booktabs = T,
+        col.names = c("Nummer", "Baumart", "Distanz (m)", "Azimut (Â°)", "BHD (cm)", "HÃ¶he (m)", "Schicht" )) %>%
+  kable_styling(latex_options = c("striped", "scale_down")) %>%
+  #kable_styling(full_width = T,
+   #             latex_options = "striped") %>%
+  column_spec(1,width = "1cm") %>%
+  column_spec(2,width = "4cm")
+      
+    cat('   \n')
+     
+    cat("  \n##", "Plot ", i,'  \n')
+    
+    cat('   \n')
+    
+    print(ploti)
+    
+    cat('   \n')
+    
+    print(f)
+    
+    cat('\\pagebreak')
+      
+    print(t)
+        
+    cat('\\pagebreak')
+       
+}
+```
